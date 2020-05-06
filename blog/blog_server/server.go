@@ -13,35 +13,25 @@ import (
 	"google.golang.org/grpc"
 )
 
-var collection *mongo.Collection
-
 type server struct {
+	collection *mongo.Collection
 }
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Printf("Blog Service Started\n")
 
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = client.Connect(context.TODO())
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("MongoDB ready\n")
-
-	collection = client.Database("mydb").Collection("blog")
-
 	lis, err := net.Listen("tcp", "0.0.0.0:50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
+	server := &server{}
+	server.collection = MongoSetup()
+
 	opts := []grpc.ServerOption{}
 	s := grpc.NewServer(opts...)
-	blogpb.RegisterBlogServiceServer(s, &server{})
+	blogpb.RegisterBlogServiceServer(s, server)
 
 	go func() {
 		log.Printf("Starting Blog server\n")
@@ -59,4 +49,19 @@ func main() {
 	log.Printf("Stopping server\n")
 	s.Stop()
 	lis.Close()
+}
+
+func MongoSetup() *mongo.Collection {
+	// TODO: env key
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = client.Connect(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("MongoDB ready\n")
+
+	return client.Database("mydb").Collection("blog")
 }
